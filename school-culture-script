@@ -1,0 +1,133 @@
+function createSpreadsheets() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var owner = ss.getOwner().getEmail();
+  var master = ss.getSheetByName("Master");
+  var analysis = ss.getSheetByName("Analysis");
+  var sheets = ss.getSheets();
+  var editors = ss.getEditors().map(function(e){return e.getEmail()});
+  for (var i = 0; i < editors.length; i++) {
+    var count = 0;
+    if (sheets.length <= 2) { count = 0; } else {
+      for (var j = 0; j < sheets.length; j++) {
+        if (sheets[j].getSheetName() != "Master" && sheets[j].getSheetName() != "Analysis") {
+          var sheetProtection = sheets[j].getProtections(SpreadsheetApp.ProtectionType.SHEET)[0];
+          var email = sheetProtection.getEditors()[1];
+          if (email == undefined) { email = owner; }
+          if (editors[i].toLowerCase() == email.toLowerCase()) {
+            count += 1;
+          }
+        }
+      }
+    }
+    if (count == 0) {
+      master.activate();
+      var sheet = ss.duplicateActiveSheet();
+      var protection = sheet.protect();
+      protection.removeEditors(protection.getEditors());
+      protection.addEditors([owner, editors[i]]);
+      var random = (editors[i][Math.floor(Math.random() * (editors[i].length - 1))])+(Math.floor(Math.random() * 1000000));
+      var name = sheet.setName(random);
+      var url = ss.getUrl();
+      MailApp.sendEmail({ 
+        to: editors[i], 
+        subject: 'Re: Your School Culture Typology Consensus Worksheet sheet ID number', 
+        htmlBody: '<p>Hi,</p>'+
+                         '<p>Thank you for completing the School Culture '+
+                         'Typology Consensus Worksheet. Please access the worksheet using "Shared with Me" in your Drive '+
+                         'account or click here: '+url+'.</p><p>You will need the '+
+                         'following ID number: '+random+'. This ID number will be the label for the sheet tab you need to '+
+                         'click on and fill out. Please do not fill out any sheet except for the one labeled with your ID '+
+                         'number. Contact me with any questions by replying to this email.</p><p>Thanks!</p>'});
+    }
+  }
+  master.activate();
+  Utilities.sleep(1000);
+  master.hideSheet();
+  
+}
+
+function postSheetData() {
+  Utilities.sleep(10000);
+  
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+  var analysis = ss.getSheetByName("Analysis");
+  var analysisIndex = analysis.getIndex();
+  var master = ss.getSheetByName("Master");
+  var masterIndex = master.getIndex();
+  
+  var owner = ss.getOwner().getEmail();
+  var protection = analysis.protect();
+  protection.removeEditors(protection.getEditors());
+  protection.addEditors([owner]);
+  
+  for (var i = 1; i < sheets.length-1; i++) {
+    var sheetName = sheets[i].getSheetName();
+    // (startrow, startcolumn, numrows, numcolumns)
+    if (i != analysisIndex || i != masterIndex) {
+      var collaborative = sheets[i].getSheetValues(3, 7, 24, 1); // Column B - Collaborative
+      var collaborativeArr = [];
+      for (var j = 1; j < 24; j += 2) {
+        var colNum = parseInt(collaborative[j]);
+        if (isNaN(colNum)) { colNum = 0; }
+        collaborativeArr.push(colNum);
+      }
+      var comfortable = sheets[i].getSheetValues(3, 6, 24, 1); // Column C - Comfortable-Collaborative 
+      var comfortableArr = [];
+      for (var k = 1; k < 24; k += 2) {
+        var comNum = parseInt(comfortable[k]);
+        if (isNaN(comNum)) { comNum = 0; }
+        comfortableArr.push(comNum);
+      }
+      var contrived = sheets[i].getSheetValues(3, 5, 24, 1); // Column D - Contrived-Collegial 
+      var contrivedArr = [];
+      for (var l = 1; l < 24; l += 2) {
+        var conNum = parseInt(contrived[l]);
+        if (isNaN(conNum)) { conNum = 0; }
+        contrivedArr.push(conNum);
+      }    
+      var balkanized = sheets[i].getSheetValues(3, 4, 24, 1); // Column E - Balkanized 
+      var balkanizedArr = [];
+      for (var m = 1; m < 24; m += 2) {
+        var balNum = parseInt(balkanized[m]);
+        if (isNaN(balNum)) { balNum = 0; }
+        balkanizedArr.push(balNum);
+      }  
+      var fragmented = sheets[i].getSheetValues(3, 3, 24, 1); // Column F - Fragmented 
+      var fragmentedArr = [];
+      for (var n = 1; n < 24; n += 2) {
+        var fraNum = parseInt(fragmented[n]);
+        if (isNaN(fraNum)) { fraNum = 0; }
+        fragmentedArr.push(fraNum);
+      }  
+      var toxic = sheets[i].getSheetValues(3, 2, 24, 1); // Column G - Toxic 
+      var toxicArr = [];
+      for (var o = 1; o < 24; o += 2) {
+        var toxNum = parseInt(toxic[o]);
+        if (isNaN(toxNum)) { toxNum = 0; }
+        toxicArr.push(toxNum);
+      } 
+      function getSum(total, num) {
+        return total + num;
+      }
+      collaborative = collaborativeArr.reduce(getSum);
+      comfortable = comfortableArr.reduce(getSum);
+      contrived = contrivedArr.reduce(getSum);
+      balkanized = balkanizedArr.reduce(getSum);
+      fragmented = fragmentedArr.reduce(getSum);
+      toxic = toxicArr.reduce(getSum);
+      var values = [[sheetName],
+                    [collaborative],
+                    [comfortable], 
+                    [contrived], 
+                    [balkanized], 
+                    [fragmented],
+                    [toxic]];
+      var valuesSum = [collaborative,comfortable,contrived,balkanized,fragmented,toxic].reduce(getSum);
+      var range = analysis.getRange(1, i+2, 7);
+      if (valuesSum > 0) { 
+        range.setValues(values);
+      }
+    }
+  }
+}
